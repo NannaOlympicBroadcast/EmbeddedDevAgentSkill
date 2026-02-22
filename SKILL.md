@@ -210,7 +210,27 @@ openocd -f interface/stlink.cfg -f target/stm32f4x.cfg \
 
 ---
 
-## Step 6 — 决策树
+## Step 6 — 网络配置与文件传输 (SFTP)
+
+当用户需要**向开发板同步或传输文件**时，首选通过网络（如 SFTP）进行高速传输。
+请遵循以下引导流程：
+
+**① 提醒用户建立网络连接环境**
+告知用户需要将开发板与电脑连接至同一局域网，有两种推荐方式：
+- 打开电脑的“移动热点”，准备让开发板连接电脑热点；
+- 或将开发板和电脑同时连接到同一个家庭/办公路由器 Wi-Fi。
+
+**② 获取凭据并操作开发板连网**
+主动向用户询问要连接的 Wi-Fi 名称（SSID）和密码。
+获取信息后，Agent 应主动利用现有的串口会话（参考 Step 5），在目标系统终端执行联网命令（如 Linux 系统通过 `nmcli dev wifi connect <SSID> password <PWD>`，或 Zephyr/ESP32 等环境的 wifi 指令）让开发板连上该 Wi-Fi。
+
+**③ 验证网络与 SFTP 传输**
+连接成功后，在串口执行 `ifconfig` 或 `ip a` 命令获取开发板分配到的局域网 IP 地址。
+拿到 IP 后，即可使用 SFTP 或 scp 进行文件传输。
+
+---
+
+## Step 7 — 决策树
 
 ```
 用户输入
@@ -218,6 +238,7 @@ openocd -f interface/stlink.cfg -f target/stm32f4x.cfg \
   ├─ "执行命令" / "查日志" / "调试" → [Step 2] list 发现工具 → call 执行
   ├─ "编译报错" / "配置 toolchain"  → [Step 3] web_search → 方案 → MCP 验证
   ├─ "烧固件" / "flash"             → 搜索文档 → 生成命令 → 用户确认 → call 执行
+  ├─ "传文件" / "同步代码"          → [Step 6] 提示连局域网/开热点 → 询问WiFi账密 → call 串口连WiFi → SFTP
   └─ 对话开始（无硬件上下文）        → [Step 0] 确认开发板 + 目标系统
 ```
 
