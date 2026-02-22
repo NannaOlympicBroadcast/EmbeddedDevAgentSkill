@@ -2,12 +2,12 @@
 name: embedded-dev-antigravity
 description: >
   嵌入式开发 Agent Skill，专为 Google Antigravity IDE 设计。当用户提到嵌入式开发、单片机、开发板、MCU、RTOS、固件烧录、串口调试、SSH 连接设备、ESP32、STM32、Raspberry Pi、Arduino、Zephyr、FreeRTOS、U-Boot、Linux 内核、设备树、交叉编译等相关话题时，必须立即触发本 Skill。也适用于：读取设备日志、烧录固件、调试硬件问题、配置 toolchain、移植代码到目标板等场景。即使用户只是问"我的板子怎么连串口"或"编译报错了"，只要涉及嵌入式硬件，也应触发本 Skill。
-compatibility: "requires: curl, mcp-cli (github.com/philschmid/mcp-cli); tools: web_search, bash"
+compatibility: "requires: python, fastmcp (pip install fastmcp); tools: web_search, shell"
 ---
 
 # 🔌 嵌入式开发 Agent Skill — Antigravity IDE
 
-所有终端交互通过 **mcp-cli** 完成，配置文件为 `electerm.json`，
+所有终端交互通过 **fastmcp CLI** 完成，直接指向 Electerm MCP Server，
 MCP Server 地址：`http://127.0.0.1:30837/mcp`
 
 ---
@@ -30,23 +30,28 @@ MCP Server 地址：`http://127.0.0.1:30837/mcp`
 
 ---
 
-## Step 1 — mcp-cli 安装与 Electerm 连接
+## Step 1 — fastmcp 安装与 Electerm 连接
 
-### 1.1 安装 mcp-cli
+### 1.1 安装 fastmcp
 
-```bash
-# 一键安装（推荐）
-curl -fsSL https://raw.githubusercontent.com/philschmid/mcp-cli/main/install.sh | bash
+```powershell
+# 通过 pip 安装（推荐，跨平台）
+pip install fastmcp
 
-# 或通过 Bun
-bun install -g https://github.com/philschmid/mcp-cli
+# 或通过 uv 安装
+uv tool install fastmcp
+```
+
+安装后验证：
+```powershell
+fastmcp version
 ```
 
 ### 1.2 检查 Electerm MCP Server 连通性
 
-```bash
+```powershell
 # 列出 electerm server 的所有可用工具
-mcp-cli --config electerm.json info electerm
+fastmcp list http://127.0.0.1:30837/mcp
 ```
 
 若输出工具列表，则连接成功。若报错，执行下方安装引导。
@@ -61,54 +66,52 @@ mcp-cli --config electerm.json info electerm
 3. **☑ 勾选全部选项** → 点击 **[Start Widgets]**
 4. 记录 Widgets 面板中显示的实际端口号
 
-若端口不是 `30837`，修改 `electerm.json` 中的 URL：
-```json
-{ "mcpServers": { "electerm": { "url": "http://127.0.0.1:<实际端口>/mcp" } } }
+若端口不是 `30837`，将后续命令中的端口号替换为实际端口：
+```
+http://127.0.0.1:<实际端口>/mcp
 ```
 
 📖 https://github.com/electerm/electerm/wiki/MCP-Widget-Usage-Guide
 
 ---
 
-## Step 2 — mcp-cli 命令参考
+## Step 2 — fastmcp 命令参考
 
-所有命令均使用 `--config electerm.json` 指定配置文件，服务器名统一为 `electerm`。
+所有命令均直接指向 MCP Server URL：`http://127.0.0.1:30837/mcp`
 
-```bash
+```powershell
 # 查看 electerm server 所有工具及描述
-mcp-cli --config electerm.json info electerm
+fastmcp list http://127.0.0.1:30837/mcp
 
-# 查看某个工具的详细参数 schema
-mcp-cli --config electerm.json info electerm <tool_name>
+# 查看所有工具的详细参数 schema
+fastmcp list http://127.0.0.1:30837/mcp --input-schema
 
-# 按关键词搜索工具（跨所有 server）
-mcp-cli --config electerm.json grep "session"
-mcp-cli --config electerm.json grep "terminal"
-mcp-cli --config electerm.json grep "exec"
+# 搜索工具（Windows 用 findstr，Linux/macOS 用 grep）
+fastmcp list http://127.0.0.1:30837/mcp | findstr "session"
+fastmcp list http://127.0.0.1:30837/mcp | findstr "terminal"
+fastmcp list http://127.0.0.1:30837/mcp | findstr "exec"
 
-# 调用工具（JSON 参数）
-mcp-cli --config electerm.json call electerm <tool_name> '{"key": "value"}'
+# 调用工具（key=value 参数形式）
+fastmcp call http://127.0.0.1:30837/mcp <tool_name> key=value
 
-# 调用工具（heredoc，适合复杂参数或含引号的命令）
-mcp-cli --config electerm.json call electerm <tool_name> << 'ARGS'
-{"sessionId": "abc123", "command": "dmesg | grep -i error | tail -20"}
-ARGS
+# 调用工具（JSON 参数形式，适合复杂参数）
+fastmcp call http://127.0.0.1:30837/mcp <tool_name> '{"key": "value"}'
 
 # 调用无参数工具
-mcp-cli --config electerm.json call electerm <tool_name>
+fastmcp call http://127.0.0.1:30837/mcp <tool_name>
 ```
 
 ### 标准工作流
 
-```bash
+```powershell
 # 1. 发现工具
-mcp-cli --config electerm.json info electerm
+fastmcp list http://127.0.0.1:30837/mcp
 
-# 2. 查看目标工具的参数
-mcp-cli --config electerm.json info electerm <tool_name>
+# 2. 查看目标工具的参数 schema
+fastmcp list http://127.0.0.1:30837/mcp --input-schema | findstr -A 10 "<tool_name>"
 
 # 3. 调用
-mcp-cli --config electerm.json call electerm <tool_name> '{"param": "value"}'
+fastmcp call http://127.0.0.1:30837/mcp <tool_name> param=value
 ```
 
 ---
@@ -157,34 +160,29 @@ site:docs.zephyrproject.org <关键词>
 
 **③ Electerm 建立串口会话**
 1. Electerm **+** → **Serial** → 填入路径和波特率 → 连接
-2. `mcp-cli --config electerm.json grep "session"` 找到列举会话的工具
-3. `mcp-cli --config electerm.json call electerm <list_tool>` 获取 session_id
+2. `fastmcp list http://127.0.0.1:30837/mcp | findstr "session"` 找到列举会话的工具
+3. `fastmcp call http://127.0.0.1:30837/mcp <list_tool>` 获取 session_id
 
 ---
 
 ## Step 5 — 在目标设备执行命令
 
-```bash
+```powershell
 # 先发现工具
-mcp-cli --config electerm.json info electerm
+fastmcp list http://127.0.0.1:30837/mcp
 
 # 找执行命令类工具
-mcp-cli --config electerm.json grep "exec"
-mcp-cli --config electerm.json grep "command"
+fastmcp list http://127.0.0.1:30837/mcp | findstr "exec"
+fastmcp list http://127.0.0.1:30837/mcp | findstr "command"
 
 # 查看工具参数
-mcp-cli --config electerm.json info electerm <exec_tool>
+fastmcp list http://127.0.0.1:30837/mcp --input-schema
 
-# 执行（含特殊字符用 heredoc 避免 shell 转义问题）
-mcp-cli --config electerm.json call electerm <exec_tool> << 'ARGS'
-{"sessionId": "<session_id>", "command": "uname -a && cat /proc/cpuinfo | head -10"}
-ARGS
+# 执行（key=value 简洁写法）
+fastmcp call http://127.0.0.1:30837/mcp <exec_tool> sessionId=<session_id> command="uname -a"
 
-# 链式调用：列出会话 → 提取 ID → 执行命令
-mcp-cli --config electerm.json call electerm <list_sessions_tool> \
-  | jq -r '.sessions[0].id' \
-  | xargs -I{} mcp-cli --config electerm.json call electerm <exec_tool> \
-    '{"sessionId": "{}", "command": "free -h"}'
+# 执行（JSON 写法，适合含特殊字符或复杂命令）
+fastmcp call http://127.0.0.1:30837/mcp <exec_tool> '{"sessionId": "<session_id>", "command": "dmesg | grep -i error | tail -20"}'
 ```
 
 ### 常用嵌入式调试命令
@@ -217,7 +215,7 @@ openocd -f interface/stlink.cfg -f target/stm32f4x.cfg \
 ```
 用户输入
   ├─ "连串口" / "初始化开发板"      → [Step 4] 串口引导 + web_search
-  ├─ "执行命令" / "查日志" / "调试" → [Step 2] grep 发现工具 → call 执行
+  ├─ "执行命令" / "查日志" / "调试" → [Step 2] list 发现工具 → call 执行
   ├─ "编译报错" / "配置 toolchain"  → [Step 3] web_search → 方案 → MCP 验证
   ├─ "烧固件" / "flash"             → 搜索文档 → 生成命令 → 用户确认 → call 执行
   └─ 对话开始（无硬件上下文）        → [Step 0] 确认开发板 + 目标系统
@@ -230,7 +228,7 @@ openocd -f interface/stlink.cfg -f target/stm32f4x.cfg \
 - 未确认开发板型号前不给出具体命令
 - `flash erase` / `rm -rf` / `dd` 等破坏性操作前必须用户明确确认
 - 每次技术回答必须附官方文档链接
-- 工具名通过 `mcp-cli info / grep` 动态发现，不硬编码
+- 工具名通过 `fastmcp list` 动态发现，不硬编码
 
 ## 附录
 
